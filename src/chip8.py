@@ -1,4 +1,5 @@
 """ Classe para controle do emulador """
+import random
 
 class Chip8(object):
     """ Classe para controle do emulador """
@@ -133,6 +134,10 @@ class Chip8(object):
         self.__jump(step)
 
     def __skip_xv_eq_vy(self, optcode):
+        step = 4 if self.__get_vx(optcode) != self.__get_vy(optcode) else 2
+        self.__jump(step)
+
+    def __skip_xv_ne_vy(self, optcode):
         step = 4 if self.__get_vx(optcode) == self.__get_vy(optcode) else 2
         self.__jump(step)
 
@@ -208,3 +213,80 @@ class Chip8(object):
         register <<= 1
         self.__set_vx(optcode, register)
         self.__jump()
+
+    def __set_index_nnn(self, optcode):
+        self.index = optcode & 0x0FFF
+        self.__jump()
+
+    def __jump_nnn(self, optcode):
+        step = (optcode & 0x0FFF) + self.register[0]
+        self.__jump(step)
+
+    def __set_vx_random(self, optcode):
+        rand = (random.randint(0, 255) % 0xFF) & (optcode & 0x00FF)
+        self.__set_vx(optcode, rand)
+        self.__jump()
+
+    def __set_vx_delay_timer(self, optcode):
+        self.__set_vx(optcode, self.delay_timer)
+        self.__jump()
+
+    def __set_delay_timer_vx(self, optcode):
+        self.delay_timer = self.__get_vx(optcode)
+        self.__jump()
+
+    def __set_sound_timer_vx(self, optcode):
+        self.sound_timer = self.__get_vx(optcode)
+        self.__jump()
+
+    def __add_vx_index(self, optcode):
+        indx = self.index + self.__get_vx(optcode)
+        if indx > 0x0FFF:
+            self.__set_vf(1)
+        else:
+            self.__set_vf(0)
+        self.index = indx
+        self.__jump()
+
+
+    def __key_press_await(self, optcode):
+        keypress = False
+        for i, key in enumerate(self.keys):
+            if key != 0:
+                self.__set_vx(optcode, i)
+                keypress = True
+
+        if not keypress:
+            return
+
+        self.__jump()
+
+    def __binary_decimal_format(self, optcode):
+        self.memory[self.index] = self.__get_vx(optcode) / 100
+        self.memory[self.index+1] = (self.__get_vx(optcode) / 10) % 10
+        self.memory[self.index+2] = (self.__get_vx(optcode) % 100) % 10
+        self.__jump()
+
+    def __fill_memory_vx_v0(self, optcode):
+        for i in range(0, self.__get_vx(optcode)):
+            self.memory[self.index+i] = self.register[i]
+        self.index += self.__get_vx(optcode) + 1
+        self.__jump()
+
+    def __fill_v0_vx_memory(self, optcode):
+        for i in range(0, self.__get_vx(optcode)):
+            self.register[i] = self.memory[self.index+i]
+        self.index += self.__get_vx(optcode) + 1
+        self.__jump()
+
+    def __draw_sprite(self, optcode):
+        print('not implemented')
+
+    def __skip_key_pressed(self, optcode):
+        print('not implemented')
+    
+    def __skip_key_not_pressed(self, optcode):
+        print('not implemented')
+
+    def __set_sprite_vx(self, optcode):
+        print('not implemented')
