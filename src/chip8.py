@@ -4,6 +4,7 @@ import random
 class Chip8(object):
     """ Classe para controle do emulador """
     # pylint: disable=too-many-instance-attributes
+    # pylint: disable=C0103
     DEFAULT_MEMORY = 4096
     DEFAULT_REGISTER = 16
     DEFAULT_GRAPHIC = 64 * 32
@@ -66,16 +67,89 @@ class Chip8(object):
 
     def emulate_cycle(self):
         ''' emulates the cpu cycle '''
-        opt_code = self.__fetch_code()
+        optcode = self.__fetch_code()
+        self.__switch(optcode)
+
+        if self.delay_timer > 0:
+            self.delay_timer -= 1
+        
+        if self.sound_timer > 0:
+            if self.sound_timer == 1:
+                print("BEEP !!")
+            self.sound_timer -= 1
+
+
 
     def __switch(self, optcode):
         opt = optcode & 0xF000
         return {
-            0x0000 : self.__opt_zero()
-        }.get(opt, 0)
+            0x0000 : self.__switch_0000(optcode),
+            0x1000 : self.__jump_nnn(optcode),
+            0x2000 : self.__call_subrotine(optcode),
+            0x3000 : self.__skip_vx_eq_nn(optcode),
+            0x4000 : self.__skip_vx_ne_nn(optcode),
+            0x5000 : self.__skip_xv_eq_vy(optcode),
+            0x6000 : self.__set_vx_nn(optcode),
+            0x7000 : self.__add_nn_vx(optcode),
+            0x8000 : self.__switch_8000(optcode),
+            0x9000 : self.__skip_vx_ne_vy(optcode),
+            0xA000 : self.__set_index_nnn(optcode),
+            0xB000 : self.__jump_nnn(optcode),
+            0xC000 : self.__set_vx_random(optcode),
+            0xD000 : self.__draw_sprite(optcode),
+            0xE000 : self.__switch_E000(optcode),
+            0xF000 : self.__switch_F000(optcode),
+            0xFFFF : self.__opt_not_found(optcode)
+        }.get(opt, 0xFFFF)
 
-    def __opt_zero(self):
-        print('test')
+    def __switch_F000(self, optcode):
+        opt = optcode & 0x00FF
+        return {
+            0x0007: self.__set_vx_delay_timer(optcode),
+            0x000A: self.__key_press_await(optcode),
+            0x0015: self.__set_delay_timer_vx(optcode),
+            0x0018: self.__set_sound_timer_vx(optcode),
+            0x001E: self.__add_vx_index(optcode),
+            0x0029: self.__set_sprite_vx(optcode),
+            0x0033: self.__binary_decimal_format(optcode),
+            0x0055: self.__fill_memory_vx_v0(optcode),
+            0x0065: self.__fill_v0_vx_memory(optcode),
+            0x0001: self.__opt_not_found(optcode)
+        }.get(opt, 0x0001)
+
+    def __switch_E000(self, optcode):
+        opt = optcode & 0x00FF
+        return {
+            0x009E: self.__skip_key_pressed(optcode),
+            0x00A1: self.__skip_key_not_pressed(optcode),
+            0x0001: self.__opt_not_found(optcode)
+        }.get(opt, 0x0001)
+
+    def __switch_8000(self, optcode):
+        opt = optcode & 0x000F
+        return {
+            0x0000: self.__set_vx_vy(optcode),
+            0x0001: self.__set_vx_vx_or_vy(optcode),
+            0x0002: self.__set_vx_vx_and_vy(optcode),
+            0x0003: self.__set_vx_vx_xor_vy(optcode),
+            0x0004: self.__add_vy_vx_carry(optcode),
+            0x0005: self.__sub_vy_vx_carry(optcode),
+            0x0006: self.__shift_right_vx_carry(optcode),
+            0x0007: self.__sub_vx_vy_carry(optcode),
+            0x000E: self.__shift_left_vx_carry(optcode),
+            0x000A: self.__opt_not_found(optcode)
+        }.get(opt, 0x000A)
+
+    def __switch_0000(self, optcode):
+        opt = optcode & 0x000F
+        return {
+            0x0000: self.__clear_screen(),
+            0x000E: self.__return_subrotine(),
+            0x0001: self.__opt_not_found(optcode)
+        }.get(opt, 0x0001)
+
+    def __opt_not_found(self, optcode):
+        print('Unknown optcode: ' + hex(optcode))
 
     def __jump(self, step=2):
         self.program_counter += step
@@ -104,9 +178,6 @@ class Chip8(object):
 
     def __set_vf(self, value):
         self.register[0xF] = value
-
-    def __unknow_code(self, optcode):
-        print('Unknow code' + optcode)
 
     def __clear_screen(self):
         self.gfx = [0x0 for pixel in self.gfx]
@@ -137,7 +208,7 @@ class Chip8(object):
         step = 4 if self.__get_vx(optcode) != self.__get_vy(optcode) else 2
         self.__jump(step)
 
-    def __skip_xv_ne_vy(self, optcode):
+    def __skip_vx_ne_vy(self, optcode):
         step = 4 if self.__get_vx(optcode) == self.__get_vy(optcode) else 2
         self.__jump(step)
 
