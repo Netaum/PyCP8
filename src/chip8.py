@@ -1,5 +1,6 @@
 """ Classe para controle do emulador """
 import random
+import sys
 
 class Chip8(object):
     """ Classe para controle do emulador """
@@ -33,8 +34,8 @@ class Chip8(object):
         with open(file_path, "rb") as file:
             byte = file.read(1)
             while byte != b"":
-                print(byte)
-                self.memory[i + self.PROGRAM_COUNTER_START] = byte
+                byteorder = sys.byteorder
+                self.memory[i + self.PROGRAM_COUNTER_START] = int.from_bytes(byte, byteorder=byteorder)
                 i += 1
                 byte = file.read(1)
 
@@ -63,7 +64,11 @@ class Chip8(object):
 
     def __fetch_code(self):
         ''' fetchs the byte code from memory '''
-        return self.memory[self.program_counter] << 8 | self.memory[self.program_counter+1]
+        memx = self.memory[self.program_counter]
+        memy = self.memory[self.program_counter+1]
+
+        optcode = (memx << 8) | memy
+        return optcode
 
     def emulate_cycle(self):
         ''' emulates the cpu cycle '''
@@ -72,7 +77,7 @@ class Chip8(object):
 
         if self.delay_timer > 0:
             self.delay_timer -= 1
-        
+
         if self.sound_timer > 0:
             if self.sound_timer == 1:
                 print("BEEP !!")
@@ -83,70 +88,65 @@ class Chip8(object):
     def __switch(self, optcode):
         opt = optcode & 0xF000
         return {
-            0x0000 : self.__switch_0000(optcode),
-            0x1000 : self.__jump_nnn(optcode),
-            0x2000 : self.__call_subrotine(optcode),
-            0x3000 : self.__skip_vx_eq_nn(optcode),
-            0x4000 : self.__skip_vx_ne_nn(optcode),
-            0x5000 : self.__skip_xv_eq_vy(optcode),
-            0x6000 : self.__set_vx_nn(optcode),
-            0x7000 : self.__add_nn_vx(optcode),
-            0x8000 : self.__switch_8000(optcode),
-            0x9000 : self.__skip_vx_ne_vy(optcode),
-            0xA000 : self.__set_index_nnn(optcode),
-            0xB000 : self.__jump_nnn(optcode),
-            0xC000 : self.__set_vx_random(optcode),
-            0xD000 : self.__draw_sprite(optcode),
-            0xE000 : self.__switch_E000(optcode),
-            0xF000 : self.__switch_F000(optcode),
-            0xFFFF : self.__opt_not_found(optcode)
-        }.get(opt, 0xFFFF)
+            0x0000 : self.__switch_0000,
+            0x1000 : self.__jump_nnn,
+            0x2000 : self.__call_subrotine,
+            0x3000 : self.__skip_vx_eq_nn,
+            0x4000 : self.__skip_vx_ne_nn,
+            0x5000 : self.__skip_xv_eq_vy,
+            0x6000 : self.__set_vx_nn,
+            0x7000 : self.__add_nn_vx,
+            0x8000 : self.__switch_8000,
+            0x9000 : self.__skip_vx_ne_vy,
+            0xA000 : self.__set_index_nnn,
+            0xB000 : self.__jump_nnn,
+            0xC000 : self.__set_vx_random,
+            0xD000 : self.__draw_sprite,
+            0xE000 : self.__switch_E000,
+            0xF000 : self.__switch_F000,
+        }.get(opt, self.__opt_not_found)(optcode)
 
     def __switch_F000(self, optcode):
         opt = optcode & 0x00FF
         return {
-            0x0007: self.__set_vx_delay_timer(optcode),
-            0x000A: self.__key_press_await(optcode),
-            0x0015: self.__set_delay_timer_vx(optcode),
-            0x0018: self.__set_sound_timer_vx(optcode),
-            0x001E: self.__add_vx_index(optcode),
-            0x0029: self.__set_sprite_vx(optcode),
-            0x0033: self.__binary_decimal_format(optcode),
-            0x0055: self.__fill_memory_vx_v0(optcode),
-            0x0065: self.__fill_v0_vx_memory(optcode),
-            0x0001: self.__opt_not_found(optcode)
-        }.get(opt, 0x0001)
+            0x0007: self.__set_vx_delay_timer,
+            0x000A: self.__key_press_await,
+            0x0015: self.__set_delay_timer_vx,
+            0x0018: self.__set_sound_timer_vx,
+            0x001E: self.__add_vx_index,
+            0x0029: self.__set_sprite_vx,
+            0x0033: self.__binary_decimal_format,
+            0x0055: self.__fill_memory_vx_v0,
+            0x0065: self.__fill_v0_vx_memory,
+        }.get(opt, self.__opt_not_found)(optcode)
 
     def __switch_E000(self, optcode):
         opt = optcode & 0x00FF
         return {
-            0x009E: self.__skip_key_pressed(optcode),
-            0x00A1: self.__skip_key_not_pressed(optcode),
-            0x0001: self.__opt_not_found(optcode)
-        }.get(opt, 0x0001)
+            0x009E: self.__skip_key_pressed,
+            0x00A1: self.__skip_key_not_pressed,
+        }.get(opt, self.__opt_not_found)(optcode)
 
     def __switch_8000(self, optcode):
         opt = optcode & 0x000F
         return {
-            0x0000: self.__set_vx_vy(optcode),
-            0x0001: self.__set_vx_vx_or_vy(optcode),
-            0x0002: self.__set_vx_vx_and_vy(optcode),
-            0x0003: self.__set_vx_vx_xor_vy(optcode),
-            0x0004: self.__add_vy_vx_carry(optcode),
-            0x0005: self.__sub_vy_vx_carry(optcode),
-            0x0006: self.__shift_right_vx_carry(optcode),
-            0x0007: self.__sub_vx_vy_carry(optcode),
-            0x000E: self.__shift_left_vx_carry(optcode),
-            0x000A: self.__opt_not_found(optcode)
-        }.get(opt, 0x000A)
+            0x0000: self.__set_vx_vy,
+            0x0001: self.__set_vx_vx_or_vy,
+            0x0002: self.__set_vx_vx_and_vy,
+            0x0003: self.__set_vx_vx_xor_vy,
+            0x0004: self.__add_vy_vx_carry,
+            0x0005: self.__sub_vy_vx_carry,
+            0x0006: self.__shift_right_vx_carry,
+            0x0007: self.__sub_vx_vy_carry,
+            0x000E: self.__shift_left_vx_carry,
+        }.get(opt, self.__opt_not_found)(optcode)
 
     def __switch_0000(self, optcode):
         opt = optcode & 0x000F
         return {
-            0x0000: self.__clear_screen(),
-            0x000E: self.__return_subrotine(),
-            0x0001: self.__opt_not_found(optcode)
-        }.get(opt, 0x0001)
+            0x0000: self.__clear_screen,
+            0x000E: self.__return_subrotine,
+        }.get(opt, self.__opt_not_found)(optcode)
 
     def __opt_not_found(self, optcode):
         print('Unknown optcode: ' + hex(optcode))
@@ -179,12 +179,14 @@ class Chip8(object):
     def __set_vf(self, value):
         self.register[0xF] = value
 
-    def __clear_screen(self):
+    def __clear_screen(self, optcode):
+        print(optcode)
         self.gfx = [0x0 for pixel in self.gfx]
         self.draw_flag = True
         self.__jump()
 
-    def __return_subrotine(self):
+    def __return_subrotine(self, optcode):
+        print(optcode)
         self.stack_pointer -= 1
         self.program_counter = self.__stack()
         self.__jump()
