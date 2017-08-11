@@ -34,8 +34,8 @@ class Chip8(object):
         with open(file_path, "rb") as file:
             byte = file.read(1)
             while byte != b"":
-                byteorder = sys.byteorder
-                self.memory[i + self.PROGRAM_COUNTER_START] = int.from_bytes(byte, byteorder=byteorder)
+                converted = int.from_bytes(byte, byteorder=sys.byteorder)
+                self.memory[i + self.PROGRAM_COUNTER_START] = converted
                 i += 1
                 byte = file.read(1)
 
